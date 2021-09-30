@@ -1,0 +1,33 @@
+version: '3'
+services:
+  inventio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inventio
+    restart: always
+    ports:
+      - 4000:4000
+    links:
+      - mongo
+    networks:
+      - mongo-compose-network
+    environment:
+      MONGO_HOST: mongo
+
+  mongo:
+    image: mongo
+    container_name: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: MongoDB!
+    ports:
+      - "27017:27017"
+    volumes:
+      - /.db:/data/db
+    networks:
+      - mongo-compose-network
+
+networks:
+    mongo-compose-network:
+      driver: bridge
