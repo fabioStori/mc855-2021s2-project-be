@@ -4,8 +4,13 @@ import pymongo
 from datetime import datetime
 
 
-class MongoHelper:
+class DuplicatedEventReceived(Exception):
+    def __init__(self, event, message="Received event is already in database"):
+        self.event = event
+        super().__init__(message)
 
+
+class MongoHelper:
     @classmethod
     def init_from_config(cls, config):
         return MongoHelper(
@@ -18,7 +23,6 @@ class MongoHelper:
         )
 
     def __init__(self, host, port, username, password, auth_source, database):
-
         self.db = pymongo.MongoClient(host=host,
                                       port=port,
                                       username=username,
@@ -28,8 +32,28 @@ class MongoHelper:
     def get_event_count(self):
         return self.db["event"].find({}).count()
 
-    def add_event(self, event):
-        if not self.db["event"].find_one({"event_hash": event["event_hash"]}):
-            event["inserted_timestamp"] = datetime.now()
-            return self.db["event"].insert_one(event)
+    def get_sensor(self, sensor_id):
+        return self.db['sensor'].find_one({"sensor_id": sensor_id})
 
+    def get_item_by_tag(self, tag_id):
+        return self.db['item'].find_one({"tags": tag_id})
+
+    def add_event(self, sensor_id, tag_id, item_id, event_timestamp, event_details):
+        event = {
+            'inserted_timestamp': datetime.now().timestamp(),
+            'event_timestamp': event_timestamp,
+            'event_details': event_details,
+            'sensor_id': sensor_id,
+            'item_id': item_id,
+            'tag_id': tag_id
+        }
+        if not self.db["event"].find_one({"event_timestamp": event_timestamp}):
+            return self.db["event"].insert_one(event)
+        else:
+            raise DuplicatedEventReceived(event)
+
+    def add_item(self, item):
+        return self.db['item'].insert_one(item)
+
+    def add_sensor(self, sensor):
+        return self.db['sensor'].find_one(sensor)

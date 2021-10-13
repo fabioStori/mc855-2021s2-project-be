@@ -30,12 +30,22 @@ def secure_token(f):
 def register_event():
     sensor_id = request.json.get('sensor_id')
     tag_id = request.json.get('tag_id')
+    event_timestamp = request.json.get('event_timestamp')
     event_details = request.json.get('event_details')
 
-    if not sensor_id or not tag_id:
+    if not sensor_id or not tag_id or not event_timestamp:
         return jsonify({"error": "missing fields for registration"}), status.HTTP_400_BAD_REQUEST
 
-    return jsonify({"event_data": event_details}), status.HTTP_200_OK
+    sensor = mongo_helper.get_sensor(sensor_id)
+    if not sensor:
+        return jsonify({"error": "sensor not registered"}), status.HTTP_400_BAD_REQUEST
+
+    item = mongo_helper.get_item_by_tag(tag_id)
+    if not item:
+        return jsonify({"error": "no item registered for this tag"}), status.HTTP_400_BAD_REQUEST
+
+    r = mongo_helper.add_event(sensor_id, tag_id, item["item_id"], event_timestamp, event_details)
+    return jsonify({"Event added successfully": str(r.inserted_id)}), status.HTTP_200_OK
 
 
 @bp.route('/event_count', methods=('GET',))
