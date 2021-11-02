@@ -1,6 +1,8 @@
+import json
+
 import pymongo.database
 import pymongo
-
+from bson import json_util
 from datetime import datetime
 
 
@@ -52,8 +54,19 @@ class MongoHelper:
         else:
             raise DuplicatedEventReceived(event)
 
-    def add_item(self, item):
-        return self.db['item'].insert_one(item)
+    def add_sensor(self, payload):
+        response = self.get_item(payload['sensor_id'])
+        if response: return 'Sensor already exists!'
+        return self.db['sensor'].insert_one(payload)
 
-    def add_sensor(self, sensor):
-        return self.db['sensor'].find_one(sensor)
+    def get_sensor_by_name(self, name):
+        return json_util.dumps(self.db['sensor'].find_one({'sensor_name': name}))
+
+    def add_item(self, payload):
+        response = self.get_item(payload['item_id'])
+        print(response)
+        if response: return 'Item already exists!'
+        return self.db['item'].insert_one(payload)
+
+    def get_item(self, item_id):
+        return self.db['item'].find_one({'item_id': item_id})
