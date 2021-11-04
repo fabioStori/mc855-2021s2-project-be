@@ -7,7 +7,13 @@ from datetime import datetime
 
 
 class DuplicatedEventReceived(Exception):
-    def __init__(self, event, message="Received event is already in database"):
+    def __init__(self, item_id, message="Received event is already in database"):
+        self.item_id = item_id
+        super().__init__(message)
+
+
+class DuplicatedItemException(Exception):
+    def __init__(self, event, message="Item is already in database"):
         self.event = event
         super().__init__(message)
 
@@ -64,9 +70,12 @@ class MongoHelper:
 
     def add_item(self, payload):
         response = self.get_item(payload['item_id'])
-        print(response)
-        if response: return 'Item already exists!'
+        if response:
+            raise DuplicatedItemException(payload['item_id'])
         return self.db['item'].insert_one(payload)
 
     def get_item(self, item_id):
         return self.db['item'].find_one({'item_id': item_id})
+
+
+
