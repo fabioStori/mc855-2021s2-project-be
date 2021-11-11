@@ -88,17 +88,18 @@ class DatabaseClassObj:
     def create_from_request(self, request):
         for field in self.__fields__():
             if request.json.get(field) is not None:
-                setattr(self, field, request.json.get(field))
+                self[field] = request.json.get(field)
 
         for field in self.required_fields:
             if request.json.get(field) is None:
                 raise MissingAttributeException(field)
 
         for field in self.unique_fields:
-            if self.mongo_helper.db[self.collection_name].find_one({field: self[field], DELETED_FIELD: True}):
-                raise DuplicatedItemException(request)
+            if field in self:
+                if self.mongo_helper.db[self.collection_name].find_one({field: self[field], DELETED_FIELD: {"$exists": False}}):
+                    raise DuplicatedItemException(request)
 
-        if self["_id"]:
+        if "_id" in self and self["_id"]:
             raise TypeError("Unable to create item, _id attribute already set")
 
         inserted = self.mongo_helper.db[self.collection_name].insert_one(dict(self))
@@ -106,7 +107,7 @@ class DatabaseClassObj:
         return self
 
     def _create_from_mongo_entry(self, entry):
-        for k, v in entry.values():
+        for k, v in entry.items():
             self.__setattr__(k, v)
         return self
 
@@ -144,7 +145,7 @@ class DatabaseClassObj:
                                                                   {"$set": {DELETED_FIELD: True}})
 
     def search(self, query_regex):
-        return list(self.mongo_helper.db[self.collection_name].find(
+        resultset = self.mongo_helper.db[self.collection_name].find(
             {'$and': [
                 {DELETED_FIELD: {"$exists": False}},
                 {"$or": [
@@ -152,12 +153,16 @@ class DatabaseClassObj:
                     for field in self.search_fields
                 ]}
             ]}
-           ))
+           )
+        objects = (self.__class__(self.mongo_helper)._create_from_mongo_entry(x) for x in resultset)
+        return list(dict(o) for o in objects)
 
     def get_all(self):
-        return list(self.mongo_helper.db[self.collection_name].find(
+        resultset = self.mongo_helper.db[self.collection_name].find(
             {DELETED_FIELD: {"$exists": False}}
-        ))
+        )
+        objects = (self.__class__(self.mongo_helper)._create_from_mongo_entry(x) for x in resultset)
+        return list(dict(o) for o in objects)
 
     def count(self):
         return self.mongo_helper.db[self.collection_name].find({DELETED_FIELD: {"$exists": False}}).count()
