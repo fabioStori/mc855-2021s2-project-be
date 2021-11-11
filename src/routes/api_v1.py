@@ -60,7 +60,7 @@ def register_event():
 
 @bp.route('/event_count', methods=('GET',))
 def get_event_count():
-    return jsonify({"event_count": Event.count(mongo_helper)}), status.HTTP_200_OK
+    return jsonify({"event_count": Event(mongo_helper).count()}), status.HTTP_200_OK
 
 
 @bp.route('/sensor', methods=('POST', 'GET'))
@@ -135,10 +135,10 @@ def find_item(item_id):
 @bp.route('/search/item', methods=('POST',))
 def search_item():
     query = request.json.get('query')
-    return jsonify(Item.search(mongo_helper, query)), status.HTTP_200_OK
+    return jsonify(Item(mongo_helper).search(query)), status.HTTP_200_OK
 
 
 @bp.route('/search/sensor', methods=('POST',))
 def search_sensor():
     query = request.json.get('query')
-    return jsonify(Sensor.search(mongo_helper, query)), status.HTTP_200_OK
+    return jsonify(Sensor(mongo_helper).search(query)), status.HTTP_200_OK
