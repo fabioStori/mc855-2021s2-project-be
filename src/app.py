@@ -8,6 +8,7 @@ from routes.api_v1 import bp as api_v1_bp
 config = Parser()
 
 app = Flask(__name__)
+app.config['CORS_HEADERS'] = 'Content-Type'
 CORS(app, resources={r"*": {"origins": "*"}})
 app.config.update({
     'SECRET_KEY': config.get("api", "secret_key", "secret"),
