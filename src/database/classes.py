@@ -51,13 +51,14 @@ class DatabaseClassObj:
     def __fields__(self):
         return self.default_fields + self.fields
 
-    def __init__(self, mongo_helper: MongoHelper, _id = None):
+    def __init__(self, mongo_helper: MongoHelper, _id=None):
         self.mongo_helper = mongo_helper
         if _id is not None:
             obj = self.mongo_helper.db[self.collection_name].find_one({self.id_field: _id,
                                                                        DELETED_FIELD: {"$exists": False}})
             if not obj:
-                raise ValueError("Object with %s = %s in collection %s not found" % (self.id_field, _id, self.collection_name))
+                raise ValueError(
+                    "Object with %s = %s in collection %s not found" % (self.id_field, _id, self.collection_name))
 
     def __getitem__(self, item):
         if item in self.__fields__():
@@ -96,7 +97,8 @@ class DatabaseClassObj:
 
         for field in self.unique_fields:
             if field in self:
-                if self.mongo_helper.db[self.collection_name].find_one({field: self[field], DELETED_FIELD: {"$exists": False}}):
+                if self.mongo_helper.db[self.collection_name].find_one(
+                        {field: self[field], DELETED_FIELD: {"$exists": False}}):
                     raise DuplicatedItemException(request)
 
         if "_id" in self and self["_id"]:
@@ -153,7 +155,7 @@ class DatabaseClassObj:
                     for field in self.search_fields
                 ]}
             ]}
-           )
+        )
         objects = (self.__class__(self.mongo_helper)._create_from_mongo_entry(x) for x in resultset)
         return list(dict(o) for o in objects)
 
@@ -187,6 +189,17 @@ class Sensor(DatabaseClassObj):
     unique_fields = ["sensor_id"]
     required_fields = ["name", "sensor_id"]
     search_fields = ["name", "sensor_id", "description", "tag"]
+
+
+class User(DatabaseClassObj):
+    collection_name = "user"
+    fields = ["email", "name", "creation_date",
+              "access"]
+    id_field = "email"
+    unique_fields = ["email"]
+    required_fields = ["name", "email", "access"]
+    search_fields = ["email", "name", "creation_date",
+                     "access"]
 
 
 class Event(DatabaseClassObj):
