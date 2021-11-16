@@ -58,6 +58,7 @@ class DatabaseClassObj:
                                                                        DELETED_FIELD: {"$exists": False}})
             if not obj:
                 raise ValueError("Object with %s = %s in collection %s not found" % (self.id_field, _id, self.collection_name))
+            self._create_from_mongo_entry(obj)
 
     def __getitem__(self, item):
         if item in self.__fields__():
