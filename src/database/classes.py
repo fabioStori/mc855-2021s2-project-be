@@ -150,7 +150,7 @@ class DatabaseClassObj:
             {'$and': [
                 {DELETED_FIELD: {"$exists": False}},
                 {"$or": [
-                    {field: {'$regex': query_regex}}
+                    {field: {'$regex': query_regex, '$options': 'i'}}
                     for field in self.search_fields
                 ]}
             ]}
