@@ -75,7 +75,7 @@ def create_sensor():
         return jsonify(Sensor(mongo_helper).get_all()), status.HTTP_200_OK
 
 
-@bp.route('/sensor/<sensor_id>', methods=('GET', 'PUT'))
+@bp.route('/sensor/<sensor_id>', methods=('GET', 'PUT', 'DELETE'))
 def find_sensor(sensor_id):
     if request.method == 'GET':
         try:
