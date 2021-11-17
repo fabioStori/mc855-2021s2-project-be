@@ -21,6 +21,8 @@ def secure_token(f):
         if "bearer" in request.headers.get("Authorization"):
             # TODO validate the token in the bearer field
             return f(*args, **kwargs)
+        else:
+            return jsonify({"Error": "Token in the wrong format supplied"}), status.HTTP_401_UNAUTHORIZED
 
     return check_authorization
 
