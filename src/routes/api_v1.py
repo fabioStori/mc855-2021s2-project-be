@@ -152,7 +152,6 @@ def search_sensor():
 
 
 @bp.route('/login', methods=('POST',))
-@secure_token
 def login():
     id_token = request.json.get('id_token')
     access_token = request.json.get('access_token')
