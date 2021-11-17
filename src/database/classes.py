@@ -54,8 +54,10 @@ class DatabaseClassObj:
     def __init__(self, mongo_helper: MongoHelper, _id = None):
         self.mongo_helper = mongo_helper
         if _id is not None:
-            obj = self.mongo_helper.db[self.collection_name].find_one({self.id_field: _id,
-                                                                       DELETED_FIELD: {"$exists": False}})
+            obj = self.mongo_helper.db[self.collection_name].find_one({"$or": [
+                                                            {self.id_field: _id, DELETED_FIELD: {"$exists": False}},
+                                                            {"_id": ObjectId(_id), DELETED_FIELD: {"$exists": False}}
+            ]})
             if not obj:
                 raise ValueError("Object with %s = %s in collection %s not found" % (self.id_field, _id, self.collection_name))
             self._create_from_mongo_entry(obj)
