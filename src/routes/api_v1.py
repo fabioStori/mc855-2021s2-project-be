@@ -1,3 +1,6 @@
+import datetime as dt
+import json
+
 from flask import Blueprint
 from flask_api import status
 from flask import request, jsonify
@@ -5,7 +8,7 @@ from functools import wraps
 
 from config import Parser
 from database.mongo_helper import MongoHelper
-from database.classes import Item, Event, Sensor
+from database.classes import Item, Event, Sensor, User
 
 mongo_helper = MongoHelper.init_from_config(Parser())
 
@@ -153,6 +156,29 @@ def search_sensor():
     return jsonify(Sensor(mongo_helper).search(query)), status.HTTP_200_OK
 
 
+@bp.route('/user', methods=('POST',))
+def create_user():
+    try:
+        # a ideia eh tirar essa verificacao daqui e colocar dentro do classes se der
+        if request.json.get('access') not in ['limited', 'default', 'master']:
+            return jsonify({'Message': 'Invalid access type'}), status.HTTP_400_BAD_REQUEST
+        request.json['creation_date'] = dt.datetime.now()
+        item = User(mongo_helper).create_from_request(request)
+        return jsonify({"Message": "Inserted Successfully!", "item": dict(item)}), status.HTTP_200_OK
+    except Exception as e:
+        return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+
+
+@bp.route('/user/<email>', methods=('DELETE', 'GET'))
+def manage_user(email):
+    if request.method == 'DELETE':
+        try:
+            user = User(mongo_helper, email)
+            user.delete()
+            return jsonify({'Message': "User removed successfully"}), status.HTTP_200_OK
+        except Exception as e:
+            return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+
 @bp.route('/login', methods=('POST',))
 def login():
     id_token = request.json.get('id_token')
@@ -176,3 +202,4 @@ def login():
         return jsonify({
             "success": False
         }), status.HTTP_401_UNAUTHORIZED
+
