@@ -2,6 +2,7 @@ import uuid
 from abc import abstractmethod
 from datetime import datetime
 
+import bson
 from bson import ObjectId
 
 from database.mongo_helper import MongoHelper, DuplicatedItemException
@@ -56,12 +57,17 @@ class DatabaseClassObj:
     def __init__(self, mongo_helper: MongoHelper, _id = None):
         self.mongo_helper = mongo_helper
         if _id is not None:
-            obj = self.mongo_helper.db[self.collection_name].find_one({"$or": [
-                                                            {self.id_field: _id, DELETED_FIELD: {"$exists": False}},
-                                                            {"_id": ObjectId(_id), DELETED_FIELD: {"$exists": False}}
-            ]})
+
+            ids_query = [{self.id_field: _id, DELETED_FIELD: {"$exists": False}}]
+            try:
+                ids_query.append({"_id": ObjectId(_id), DELETED_FIELD: {"$exists": False}})
+            except bson.errors.InvalidId:
+                pass
+
+            obj = self.mongo_helper.db[self.collection_name].find_one({"$or": ids_query})
             if not obj:
-                raise ValueError("Object with %s = %s in collection %s not found" % (self.id_field, _id, self.collection_name))
+                raise ValueError("Object with %s = %s in collection %s not found" % (self.id_field, _id,
+                                                                                     self.collection_name))
             self._create_from_mongo_entry(obj)
 
     def __getitem__(self, item):
@@ -194,6 +200,17 @@ class Sensor(DatabaseClassObj):
     search_fields = ["name", "sensor_id", "description", "tag"]
 
 
+USER_ACCESS_LIMITED = 2
+USER_ACCESS_DEFAULT = 1
+USER_ACCESS_MASTER = -1
+
+ACCESS_DICT = {
+    'limited': USER_ACCESS_LIMITED,
+    'default': USER_ACCESS_DEFAULT,
+    'master': USER_ACCESS_MASTER
+}
+
+
 class User(DatabaseClassObj):
     collection_name = "user"
     fields = ["email", "name", "creation_date",
@@ -203,6 +220,31 @@ class User(DatabaseClassObj):
     required_fields = ["name", "email", "access"]
     search_fields = ["email", "name", "creation_date",
                      "access"]
+
+    acceptable_access = [USER_ACCESS_LIMITED, USER_ACCESS_DEFAULT, USER_ACCESS_MASTER]
+
+    def __setitem__(self, key, value):
+        if key == 'access':
+            if value in ACCESS_DICT:
+                value = ACCESS_DICT[value]
+        super(User, self).__setitem__(key, value)
+
+    def create_from_request(self, request):
+        if request.json.get('access') not in self.acceptable_access and request.json.get('access') not in ACCESS_DICT:
+            raise MissingAttributeException("attribute access is present, but invalid")
+        return super(User, self).create_from_request(request)
+
+    def update_from_request(self, request):
+        if request.json.get('access'):
+            if request.json['access'] not in self.acceptable_access:
+                raise MissingAttributeException("attribute access is present, but invalid")
+        return super(User, self).update_from_request(request)
+
+    def create_from_raw_data(self, entry):
+        self._create_from_mongo_entry(entry)
+        inserted = self.mongo_helper.db[self.collection_name].insert_one(dict(self))
+        self["_id"] = inserted.inserted_id
+        return self
 
 
 class Event(DatabaseClassObj):
@@ -237,19 +279,16 @@ class Event(DatabaseClassObj):
 
 class Token(DatabaseClassObj):
     collection_name = "token"
-    fields = ["last_modified", "token", "user_data"]
+    fields = ["last_modified", "token", "user_data", "access_level"]
     id_field = "token"
     unique_fields = ["token"]
-    required_fields = ["token", "user_data"]
+    required_fields = ["token", "user_data", "access_level"]
     search_fields = []
 
     def check_token_ttl(self):
-        if self.mongo_helper.db[self.collection_name].indexes.find_one({'name': 'token_expiration_ttl'}):
-            return False
         self.mongo_helper.db[self.collection_name].create_index(
-            {"last_modified": 1},
-            {'expireAfterSeconds': 20*60})  # 20 minutes
-        return True
+           "last_modified", expireAfterSeconds=20*60, name="last_modified_ttl")  # 20 minutes
+
 
     def create_from_request(self, request):
         raise NotImplementedError()
@@ -258,6 +297,7 @@ class Token(DatabaseClassObj):
         self.check_token_ttl()
         self['last_modified'] = datetime.now()
         self['user_data'] = user_data
+        self['access_level'] = user_data["access"]
         self['token'] = str(uuid.uuid4())
 
         inserted = self.mongo_helper.db[self.collection_name].insert_one(dict(self))
