@@ -1,4 +1,6 @@
+import uuid
 from abc import abstractmethod
+from datetime import datetime
 
 from bson import ObjectId
 
@@ -220,3 +222,37 @@ class Event(DatabaseClassObj):
             filters.append({'event_timestamp': {"$gte": start_timestamp_range, "$lte": end_timestamp_range}})
 
         return list(self.mongo_helper.db[self.collection_name].find(filters))
+
+
+class Token(DatabaseClassObj):
+    collection_name = "token"
+    fields = ["last_modified", "token", "user_data"]
+    id_field = "token"
+    unique_fields = ["token"]
+    required_fields = ["token", "user_data"]
+    search_fields = []
+
+    def check_token_ttl(self):
+        if self.mongo_helper.db[self.collection_name].indexes.find_one({'name': 'token_expiration_ttl'}):
+            return False
+        self.mongo_helper.db[self.collection_name].create_index(
+            {"last_modified": 1},
+            {'expireAfterSeconds': 20*60})  # 20 minutes
+        return True
+
+    def create_from_request(self, request):
+        raise NotImplementedError()
+
+    def create_token_from_user_data(self, user_data):
+        self.check_token_ttl()
+        self['last_modified'] = datetime.now()
+        self['user_data'] = user_data
+        self['token'] = str(uuid.uuid4())
+
+        inserted = self.mongo_helper.db[self.collection_name].insert_one(dict(self))
+        self["_id"] = inserted.inserted_id
+        return self['token']
+
+    def update_token(self):
+        self['last_modified'] = datetime.now()
+        self.update_in_db()

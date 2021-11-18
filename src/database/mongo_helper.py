@@ -77,5 +77,16 @@ class MongoHelper:
     def get_item(self, item_id):
         return self.db['item'].find_one({'item_id': item_id})
 
+    def check_token_ttl(self):
+        if self.db['token'].indexes.find_one({'name': 'token_expiration_ttl'}):
+            return False
+        self.db['token'].create_index(
+            {"last_modified_date": 1},
+            {'expireAfterSeconds': 20*60}) # 20 minutes
+        return True
 
+    def add_access_token(self):
+        self.check_token_ttl()
 
+    def update_access_token(self):
+        self.db
