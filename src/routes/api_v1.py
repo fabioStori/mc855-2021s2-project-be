@@ -24,6 +24,8 @@ def secure_token(f):
         if "bearer" in request.headers.get("Authorization"):
             # TODO validate the token in the bearer field
             return f(*args, **kwargs)
+        else:
+            return jsonify({"Error": "Token in the wrong format supplied"}), status.HTTP_401_UNAUTHORIZED
 
     return check_authorization
 
@@ -62,11 +64,13 @@ def register_event():
 
 
 @bp.route('/event_count', methods=('GET',))
+@secure_token
 def get_event_count():
     return jsonify({"event_count": Event(mongo_helper).count()}), status.HTTP_200_OK
 
 
 @bp.route('/sensor', methods=('POST', 'GET'))
+@secure_token
 def create_sensor():
     if request.method == 'POST':
         try:
@@ -79,6 +83,7 @@ def create_sensor():
 
 
 @bp.route('/sensor/<sensor_id>', methods=('GET', 'PUT', 'DELETE'))
+@secure_token
 def find_sensor(sensor_id):
     if request.method == 'GET':
         try:
@@ -103,6 +108,7 @@ def find_sensor(sensor_id):
 
 
 @bp.route('/item', methods=('POST', ))
+@secure_token
 def create_item():
     try:
         item = Item(mongo_helper).create_from_request(request)
@@ -112,6 +118,7 @@ def create_item():
 
 
 @bp.route('/item/<item_id>', methods=('GET', 'PUT', 'DELETE'))
+@secure_token
 def find_item(item_id):
     if request.method == 'GET':
         try:
@@ -136,12 +143,14 @@ def find_item(item_id):
 
 
 @bp.route('/search/item', methods=('POST',))
+@secure_token
 def search_item():
     query = request.json.get('query')
     return jsonify(Item(mongo_helper).search(query)), status.HTTP_200_OK
 
 
 @bp.route('/search/sensor', methods=('POST',))
+@secure_token
 def search_sensor():
     query = request.json.get('query')
     return jsonify(Sensor(mongo_helper).search(query)), status.HTTP_200_OK
@@ -169,3 +178,28 @@ def manage_user(email):
             return jsonify({'Message': "User removed successfully"}), status.HTTP_200_OK
         except Exception as e:
             return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+
+@bp.route('/login', methods=('POST',))
+def login():
+    id_token = request.json.get('id_token')
+    access_token = request.json.get('access_token')
+    email = request.json.get('email')
+    allowed_users = [
+        'f196631@dac.unicamp.br',
+        'f171036@dac.unicamp.br',
+        'g172111@dac.unicamp.br',
+        'a193325@dac.unicamp.br',
+        'jufborin@unicamp.br',
+        'soraia@ic.unicamp.br',
+    ]
+
+    if email in allowed_users:
+        return jsonify({
+            "success": True,
+            "access_token": "ABCD1234"
+        }), status.HTTP_200_OK
+    else:
+        return jsonify({
+            "success": False
+        }), status.HTTP_401_UNAUTHORIZED
+
