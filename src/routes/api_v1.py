@@ -1,5 +1,4 @@
 import datetime as dt
-import json
 
 from flask import Blueprint
 from flask_api import status
@@ -8,7 +7,7 @@ from functools import wraps
 
 from config import Parser
 from database.mongo_helper import MongoHelper
-from database.classes import Item, Event, Sensor, User, Token
+from database.classes import Item, Event, Sensor, User, Token, USER_ACCESS_MASTER, USER_ACCESS_DEFAULT, USER_ACCESS_LIMITED
 from google_utils import get_google_user_data
 
 mongo_helper = MongoHelper.init_from_config(Parser())
@@ -16,31 +15,36 @@ mongo_helper = MongoHelper.init_from_config(Parser())
 bp = Blueprint(__name__, 'api_v1')
 
 
-def secure_token(f):
+def secure_token(restrict_access=USER_ACCESS_LIMITED):
+    # por padrao, qualquer nivel de acesso tem permissão na rota
     #401 - fora da lista
     #403 - sem acesso (permissao)
     #498 - token expirado
-    @wraps(f)
-    def check_authorization(*args, **kwargs):
-        if not request.headers.get("Authorization"):
-            return jsonify({"Error": "No authorization token supplied"}), status.HTTP_401_UNAUTHORIZED
+    def decorator(f):
+        @wraps(f)
+        def check_authorization(*args, **kwargs):
+            if not request.headers.get("Authorization"):
+                return jsonify({"Error": "No authorization token supplied"}), status.HTTP_401_UNAUTHORIZED
 
-        if "bearer" in request.headers.get("Authorization"):
-            try:
-                token = Token(mongo_helper, _id=request.headers.get("Authorization")[7:])
-                token.update_in_db()
-                # TODO validate if user has access to this resource
-                return f(*args, **kwargs)
-            except ValueError:
-                return jsonify({"Error": "Token expired"}), 498
-        else:
-            return jsonify({"Error": "Token in the wrong format supplied"}), status.HTTP_401_UNAUTHORIZED
+            if "bearer" in request.headers.get("Authorization"):
+                try:
+                    token = Token(mongo_helper, _id=request.headers.get("Authorization")[7:])
+                    token.update_in_db()
 
-    return check_authorization
+                    if token['access_level'] <= restrict_access:
+                        return f(*args, **kwargs)
+                    else:
+                        return jsonify({"Error": "User does not have access to this resource"}), status.HTTP_403_FORBIDDEN
+
+                except ValueError:
+                    return jsonify({"Error": "Token expired"}), 498
+            else:
+                return jsonify({"Error": "Token in the wrong format supplied"}), status.HTTP_401_UNAUTHORIZED
+        return check_authorization
+    return decorator
 
 
-@bp.route('/event', methods=('POST', 'GET'))
-@secure_token
+@bp.route('/event', methods=('POST',))
 def register_event():
     if request.method == "POST":
         sensor_id = request.json.get('sensor_id')
@@ -62,7 +66,11 @@ def register_event():
         r = mongo_helper.add_event(sensor_id, tag_id, item["item_id"], event_timestamp, event_details)
         return jsonify({"Event added successfully": str(r.inserted_id)}), status.HTTP_200_OK
 
-    elif request.method == "GET":
+
+@bp.route('/event', methods=('GET',))
+@secure_token()
+def read_event():
+    if request.method == "GET":
         sensor_id = request.json.get('sensor_id')
         item_id = request.json.get('item_id')
         start_timestamp_range = request.json.get('start_timestamp_range')
@@ -73,13 +81,13 @@ def register_event():
 
 
 @bp.route('/event_count', methods=('GET',))
-@secure_token
+@secure_token()
 def get_event_count():
     return jsonify({"event_count": Event(mongo_helper).count()}), status.HTTP_200_OK
 
 
-@bp.route('/sensor', methods=('POST', 'GET'))
-@secure_token
+@bp.route('/sensor', methods=('POST', ))
+@secure_token(USER_ACCESS_DEFAULT)
 def create_sensor():
     if request.method == 'POST':
         try:
@@ -87,12 +95,17 @@ def create_sensor():
             return jsonify({"Message": "Inserted Successfully!", "sensor": dict(sensor)}), status.HTTP_200_OK
         except Exception as e:
             return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
-    elif request.method == 'GET':
+
+
+@bp.route('/sensor', methods=('GET', ))
+@secure_token()
+def read_sensor():
+    if request.method == 'GET':
         return jsonify(Sensor(mongo_helper).get_all()), status.HTTP_200_OK
 
 
-@bp.route('/sensor/<sensor_id>', methods=('GET', 'PUT', 'DELETE'))
-@secure_token
+@bp.route('/sensor/<sensor_id>', methods=('GET',))
+@secure_token()
 def find_sensor(sensor_id):
     if request.method == 'GET':
         try:
@@ -100,7 +113,12 @@ def find_sensor(sensor_id):
             return jsonify(dict(sensor)), status.HTTP_200_OK
         except Exception as e:
             return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
-    elif request.method == 'PUT':
+
+
+@bp.route('/sensor/<sensor_id>', methods=('PUT', 'DELETE'))
+@secure_token(restrict_access=USER_ACCESS_DEFAULT)
+def update_sensor(sensor_id):
+    if request.method == 'PUT':
         try:
             sensor = Sensor(mongo_helper, sensor_id)
             sensor.update_from_request(request)
@@ -117,7 +135,7 @@ def find_sensor(sensor_id):
 
 
 @bp.route('/item', methods=('POST', ))
-@secure_token
+@secure_token(restrict_access=USER_ACCESS_DEFAULT)
 def create_item():
     try:
         item = Item(mongo_helper).create_from_request(request)
@@ -126,8 +144,8 @@ def create_item():
         return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
 
 
-@bp.route('/item/<item_id>', methods=('GET', 'PUT', 'DELETE'))
-@secure_token
+@bp.route('/item/<item_id>', methods=('GET', ))
+@secure_token()
 def find_item(item_id):
     if request.method == 'GET':
         try:
@@ -135,7 +153,12 @@ def find_item(item_id):
             return jsonify(dict(item)), status.HTTP_200_OK
         except Exception as e:
             return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
-    elif request.method == 'PUT':
+
+
+@bp.route('/item/<item_id>', methods=('PUT', 'DELETE'))
+@secure_token(restrict_access=USER_ACCESS_DEFAULT)
+def update_item(item_id):
+    if request.method == 'PUT':
         try:
             item = Item(mongo_helper, item_id)
             item.update_from_request(request)
@@ -152,35 +175,49 @@ def find_item(item_id):
 
 
 @bp.route('/search/item', methods=('POST',))
-@secure_token
+@secure_token()
 def search_item():
     query = request.json.get('query')
     return jsonify(Item(mongo_helper).search(query)), status.HTTP_200_OK
 
 
 @bp.route('/search/sensor', methods=('POST',))
-@secure_token
+@secure_token()
 def search_sensor():
     query = request.json.get('query')
     return jsonify(Sensor(mongo_helper).search(query)), status.HTTP_200_OK
 
 
-@bp.route('/user', methods=('POST',))
+@bp.route('/user', methods=('POST', 'GET'))
+@secure_token(restrict_access=USER_ACCESS_MASTER)
 def create_user():
-    try:
-        # a ideia eh tirar essa verificacao daqui e colocar dentro do classes se der
-        if request.json.get('access') not in ['limited', 'default', 'master']:
-            return jsonify({'Message': 'Invalid access type'}), status.HTTP_400_BAD_REQUEST
-        request.json['creation_date'] = dt.datetime.now()
-        item = User(mongo_helper).create_from_request(request)
-        return jsonify({"Message": "Inserted Successfully!", "item": dict(item)}), status.HTTP_200_OK
-    except Exception as e:
-        return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+    if request.method == 'GET':
+        return jsonify(User(mongo_helper).get_all()), status.HTTP_200_OK
+    elif request.method == 'POST':
+        try:
+            item = User(mongo_helper).create_from_request(request)
+            return jsonify({"Message": "Inserted Successfully!", "item": dict(item)}), status.HTTP_200_OK
+        except Exception as e:
+            return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
 
 
-@bp.route('/user/<email>', methods=('DELETE', 'GET'))
+@bp.route('/user/<email>', methods=('DELETE', 'GET', 'PUT'))
+@secure_token(restrict_access=USER_ACCESS_MASTER)
 def manage_user(email):
-    if request.method == 'DELETE':
+    if request.method == 'GET':
+        try:
+            user = User(mongo_helper, email)
+            return jsonify(dict(user)), status.HTTP_200_OK
+        except Exception as e:
+            return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+    elif request.method == 'PUT':
+        try:
+            user = User(mongo_helper, email)
+            user.update_from_request(request)
+            return jsonify(dict(user)), status.HTTP_200_OK
+        except Exception as e:
+            return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+    elif request.method == 'DELETE':
         try:
             user = User(mongo_helper, email)
             user.delete()
@@ -188,35 +225,41 @@ def manage_user(email):
         except Exception as e:
             return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
 
+
 @bp.route('/login', methods=('POST',))
 def login():
     id_token = request.json.get('id_token')
     access_token = request.json.get('access_token')
     email = request.json.get('email')
-    allowed_users = [
-        'f196631@dac.unicamp.br',
-        'f171036@dac.unicamp.br',
-        'g172111@dac.unicamp.br',
-        'a193325@dac.unicamp.br',
-        'jufborin@unicamp.br',
-        'soraia@ic.unicamp.br',
-    ]
 
     # Check if e-mail supplied matches google token supplied
-    user_data = get_google_user_data(access_token)
-    if user_data["email"].lower() != email.lower():
+    g_user_data = get_google_user_data(access_token)
+    if g_user_data["email"].lower() != email.lower():
         return jsonify({
             "success": False
         }), status.HTTP_401_UNAUTHORIZED
 
-    if email in allowed_users:  # TODO replace this by checking the updatable list of allowed users
+    if User(mongo_helper).count() == 0:  # There is no user registered. Register this user as admin so he can enable others in
+        User(mongo_helper).create_from_raw_data({
+            "email": email,
+            "access": USER_ACCESS_MASTER
+        })
+    try:
+        user = User(mongo_helper, email)
+        user_data = dict(user)
+        user_data["id_token"] = id_token
+        user_data["access_token"] = access_token
+        user_data["google_data"] = g_user_data
         access_token = Token(mongo_helper).create_token_from_user_data(user_data)
+
         return jsonify({
-            "success": True,
-            "access_token": access_token
+           "success": True,
+           "access_token": access_token
         }), status.HTTP_200_OK
-    else:
+    except ValueError:  # User not in database
         return jsonify({
             "success": False
         }), status.HTTP_401_UNAUTHORIZED
+
+
 
