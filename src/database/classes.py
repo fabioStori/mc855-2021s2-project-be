@@ -257,7 +257,7 @@ class Event(DatabaseClassObj):
                        "sensor_id", "tag_id"]
     search_fields = ["event_details", "sensor_id", "item_id", "tag_id"]
 
-    def filter(self, sensor_id, item_id, start_timestamp_range, end_timestamp_range):
+    def filter_events(self, sensor_id=None, item_id=None, start_timestamp_range=None, end_timestamp_range=None, limit=None):
         filters = []
         if sensor_id is not None:
             if isinstance(sensor_id, list):
@@ -274,7 +274,12 @@ class Event(DatabaseClassObj):
         if start_timestamp_range is not None and end_timestamp_range is not None:
             filters.append({'event_timestamp': {"$gte": start_timestamp_range, "$lte": end_timestamp_range}})
 
-        return list(self.mongo_helper.db[self.collection_name].find(filters))
+        q = self.mongo_helper.db[self.collection_name].find({'$or': filters}).sort([("event_timestamp", -1)])
+        if limit:
+            q.limit(limit)
+
+        objects = (self.__class__(self.mongo_helper)._create_from_mongo_entry(x) for x in q)
+        return list(dict(o) for o in objects)
 
 
 class Token(DatabaseClassObj):
