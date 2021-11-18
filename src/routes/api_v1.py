@@ -76,7 +76,7 @@ def read_event():
         start_timestamp_range = request.json.get('start_timestamp_range')
         end_timestamp_range = request.json.get('end_timestamp_range')
 
-        events = Event(mongo_helper).filter(sensor_id, item_id, start_timestamp_range, end_timestamp_range)
+        events = Event(mongo_helper).filter_events(sensor_id, item_id, start_timestamp_range, end_timestamp_range)
         return jsonify([dict(x) for x in events]), status.HTTP_200_OK
 
 
@@ -178,14 +178,24 @@ def update_item(item_id):
 @secure_token()
 def search_item():
     query = request.json.get('query')
-    return jsonify(Item(mongo_helper).search(query)), status.HTTP_200_OK
+    history_limit = request.json.get('history_limit', 10)
+    result_set = Item(mongo_helper).search(query)
+    # joining events
+    for item in result_set:
+        item["last_activity"] = Event(mongo_helper).filter_events(item_id=item["item_id"], limit=history_limit) or None
+    return jsonify(result_set), status.HTTP_200_OK
 
 
 @bp.route('/search/sensor', methods=('POST',))
 @secure_token()
 def search_sensor():
     query = request.json.get('query')
-    return jsonify(Sensor(mongo_helper).search(query)), status.HTTP_200_OK
+    history_limit = request.json.get('history_limit', 10)
+    result_set = Sensor(mongo_helper).search(query)
+    # joining events
+    for sensor in result_set:
+        sensor["last_activity"] = Event(mongo_helper).filter_events(sensor_id=sensor["sensor_id"], limit=history_limit) or None
+    return jsonify(result_set), status.HTTP_200_OK
 
 
 @bp.route('/user', methods=('POST', 'GET'))
