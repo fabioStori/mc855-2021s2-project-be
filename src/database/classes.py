@@ -194,6 +194,17 @@ class Sensor(DatabaseClassObj):
     search_fields = ["name", "sensor_id", "description", "tag"]
 
 
+class User(DatabaseClassObj):
+    collection_name = "user"
+    fields = ["email", "name", "creation_date",
+              "access"]
+    id_field = "email"
+    unique_fields = ["email"]
+    required_fields = ["name", "email", "access"]
+    search_fields = ["email", "name", "creation_date",
+                     "access"]
+
+
 class Event(DatabaseClassObj):
     collection_name = "event"
     fields = ["received_timestamp", "event_timestamp", "event_details",
