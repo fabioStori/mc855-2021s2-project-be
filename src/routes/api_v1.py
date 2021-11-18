@@ -8,7 +8,8 @@ from functools import wraps
 
 from config import Parser
 from database.mongo_helper import MongoHelper
-from database.classes import Item, Event, Sensor, User
+from database.classes import Item, Event, Sensor, User, Token
+from google_utils import get_google_user_data
 
 mongo_helper = MongoHelper.init_from_config(Parser())
 
@@ -16,14 +17,22 @@ bp = Blueprint(__name__, 'api_v1')
 
 
 def secure_token(f):
+    #401 - fora da lista
+    #403 - sem acesso (permissao)
+    #498 - token expirado
     @wraps(f)
     def check_authorization(*args, **kwargs):
         if not request.headers.get("Authorization"):
             return jsonify({"Error": "No authorization token supplied"}), status.HTTP_401_UNAUTHORIZED
 
         if "bearer" in request.headers.get("Authorization"):
-            # TODO validate the token in the bearer field
-            return f(*args, **kwargs)
+            try:
+                token = Token(mongo_helper, _id=request.headers.get("Authorization")[7:])
+                token.update_in_db()
+                # TODO validate if user has access to this resource
+                return f(*args, **kwargs)
+            except ValueError:
+                return jsonify({"Error": "Token expired"}), 498
         else:
             return jsonify({"Error": "Token in the wrong format supplied"}), status.HTTP_401_UNAUTHORIZED
 
@@ -193,10 +202,18 @@ def login():
         'soraia@ic.unicamp.br',
     ]
 
-    if email in allowed_users:
+    # Check if e-mail supplied matches google token supplied
+    user_data = get_google_user_data(access_token)
+    if user_data["email"].lower() != email.lower():
+        return jsonify({
+            "success": False
+        }), status.HTTP_401_UNAUTHORIZED
+
+    if email in allowed_users:  # TODO replace this by checking the updatable list of allowed users
+        access_token = Token(mongo_helper).create_token_from_user_data(user_data)
         return jsonify({
             "success": True,
-            "access_token": "ABCD1234"
+            "access_token": access_token
         }), status.HTTP_200_OK
     else:
         return jsonify({
