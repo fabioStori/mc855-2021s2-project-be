@@ -67,7 +67,7 @@ def register_event():
         return jsonify({"Event added successfully": str(r.inserted_id)}), status.HTTP_200_OK
 
 
-@bp.route('/event', methods=('GET', 'POST'))
+@bp.route('/event', methods=('GET',))
 @secure_token()
 def read_event():
     if request.method == "GET":
@@ -76,14 +76,8 @@ def read_event():
         start_timestamp_range = request.json.get('start_timestamp_range')
         end_timestamp_range = request.json.get('end_timestamp_range')
 
-    elif request.method == "POST":
-        sensor_id = request.args.get('sensor_id')
-        item_id = request.args.get('item_id')
-        start_timestamp_range = request.args.get('start_timestamp_range')
-        end_timestamp_range = request.args.get('end_timestamp_range')
-
-    events = Event(mongo_helper).filter_events(sensor_id, item_id, start_timestamp_range, end_timestamp_range)
-    return jsonify([dict(x) for x in events]), status.HTTP_200_OK
+        events = Event(mongo_helper).filter_events(sensor_id, item_id, start_timestamp_range, end_timestamp_range)
+        return jsonify([dict(x) for x in events]), status.HTTP_200_OK
 
 
 @bp.route('/event_count', methods=('GET',))
