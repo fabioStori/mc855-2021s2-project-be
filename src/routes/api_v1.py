@@ -71,12 +71,14 @@ def register_event():
 @secure_token()
 def read_event():
     if request.method == "GET":
-        sensor_id = request.json.get('sensor_id')
-        item_id = request.json.get('item_id')
-        start_timestamp_range = request.json.get('start_timestamp_range')
-        end_timestamp_range = request.json.get('end_timestamp_range')
+        sensor_id = request.args.get('sensor_id')
+        item_id = request.args.get('item_id')
+        start_timestamp_range = request.args.get('start_timestamp_range')
+        end_timestamp_range = request.args.get('end_timestamp_range')
+        limit = int(request.args.get('limit', 50))
+        skip = int(request.args.get('skip', 0))
 
-        events = Event(mongo_helper).filter_events(sensor_id, item_id, start_timestamp_range, end_timestamp_range)
+        events = Event(mongo_helper).filter_events(sensor_id, item_id, start_timestamp_range, end_timestamp_range, limit, skip)
         return jsonify([dict(x) for x in events]), status.HTTP_200_OK
 
 
@@ -179,10 +181,11 @@ def update_item(item_id):
 def search_item():
     query = request.json.get('query')
     history_limit = request.json.get('history_limit', 10)
+    history_skip = request.json.get('history_skip', 0)
     result_set = Item(mongo_helper).search(query)
     # joining events
     for item in result_set:
-        item["last_activity"] = Event(mongo_helper).filter_events(item_id=item["item_id"], limit=history_limit) or None
+        item["last_activity"] = Event(mongo_helper).filter_events(item_id=item["item_id"], limit=history_limit, skip=history_skip) or None
     return jsonify(result_set), status.HTTP_200_OK
 
 
@@ -191,10 +194,11 @@ def search_item():
 def search_sensor():
     query = request.json.get('query')
     history_limit = request.json.get('history_limit', 10)
+    history_skip = request.json.get('history_skip', 0)
     result_set = Sensor(mongo_helper).search(query)
     # joining events
     for sensor in result_set:
-        sensor["last_activity"] = Event(mongo_helper).filter_events(sensor_id=sensor["sensor_id"], limit=history_limit) or None
+        sensor["last_activity"] = Event(mongo_helper).filter_events(sensor_id=sensor["sensor_id"], limit=history_limit, skip=history_skip) or None
     return jsonify(result_set), status.HTTP_200_OK
 
 
