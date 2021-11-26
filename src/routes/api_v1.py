@@ -29,7 +29,7 @@ def secure_token(restrict_access=USER_ACCESS_LIMITED):
             if "bearer" in request.headers.get("Authorization"):
                 try:
                     token = Token(mongo_helper, _id=request.headers.get("Authorization")[7:])
-                    token.update_in_db()
+                    token.update_token()
 
                     if token['access_level'] <= restrict_access:
                         return f(*args, **kwargs)
