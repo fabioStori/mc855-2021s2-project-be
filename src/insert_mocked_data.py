@@ -31,11 +31,11 @@ for i in range(0xffff01, 0xffff05):
 
 for i, tag_id in enumerate(vet):
     Item(mongo_helper)._create_from_script({
-        "item_id": i,
+        "item_id": str(i),
         "name": "Notebook Dell FFAABBCC0%d" % i,
         "tags": [tag_id],
-        "location_blacklist": "None",
-        "location_whitelist": "All",
+        "location_blacklist": None,
+        "location_whitelist": None,
         "default_storage_location": "CC02",
         "description": lorem
     })
@@ -46,6 +46,6 @@ for i in range(0xffff01, 0xffff05):
         "event_timestamp": dt.datetime.now(),
         "event_details": "tag in motion",
         "sensor_id": hex(i),
-        "item_id": randint(0,5),
+        "item_id": str(randint(0,5)),
         "tag_id": random.choice(vet)
     })
