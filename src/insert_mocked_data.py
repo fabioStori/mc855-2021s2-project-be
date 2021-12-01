@@ -42,8 +42,8 @@ for i, tag_id in enumerate(vet):
 
 for i in range(0xffff01, 0xffff05):
     Event(mongo_helper)._create_from_script({
-        "received_timestamp": dt.datetime.now(),
-        "event_timestamp": dt.datetime.now(),
+        "received_timestamp": dt.datetime.now().timestamp(),
+        "event_timestamp": dt.datetime.now().timestamp(),
         "event_details": "tag in motion",
         "sensor_id": hex(i),
         "item_id": str(randint(0,5)),
