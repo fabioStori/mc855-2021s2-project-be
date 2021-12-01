@@ -137,12 +137,11 @@ class DatabaseClassObj:
         if "_id" not in self and self.id_field not in self:
             raise MissingAttributeException("_id")
 
-        if "_id" in self:
-            self.mongo_helper.db[self.collection_name].update_one({"_id": ObjectId(self["_id"])},
-                                                                  {"$set": request})
-        else:
-            self.mongo_helper.db[self.collection_name].update_one({self.id_field, self[self.id_field]},
-                                                                  {"$set": request})
+        for k, v in request.json.items():
+            if k in self.__fields__():
+                self.__setattr__(k, v)
+        self.update_in_db()
+
 
     def delete(self):
         if "_id" not in self and self.id_field not in self:
