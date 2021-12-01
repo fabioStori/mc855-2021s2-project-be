@@ -225,7 +225,15 @@ def search_event():
         ([x["item_id"] for x in result_items] if result_items is not None else result_items),
         start_timestamp_range, end_timestamp_range, limit, skip)
 
-    return jsonify([dict(x) for x in events]), status.HTTP_200_OK
+
+    results = []
+    for event in events:
+        e = dict(event)
+        e["sensor"] = dict(Sensor(mongo_helper, e["sensor_id"]))
+        e["item"] = dict(Item(mongo_helper, e["item_id"]))
+        results.append(e)
+
+    return jsonify(results), status.HTTP_200_OK
 
 
 @bp.route('/user', methods=('POST', 'GET'))
