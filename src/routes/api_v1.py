@@ -202,6 +202,32 @@ def search_sensor():
     return jsonify(result_set), status.HTTP_200_OK
 
 
+@bp.route('/search/event', methods=('POST',))
+@secure_token()
+def search_event():
+    start_timestamp_range = request.json.get('start_timestamp_range')
+    end_timestamp_range = request.json.get('end_timestamp_range')
+    limit = int(request.json.get('limit', 0))
+    skip = int(request.json.get('skip', 0))
+
+    sensor_queries = request.json.get('sensor_query')
+    result_sensors = None
+    if sensor_queries:
+        result_sensors = Sensor(mongo_helper).search(sensor_queries, return_objects=True)
+
+    item_queries = request.json.get('item_query')
+    result_items = None
+    if item_queries:
+        result_items = Item(mongo_helper).search(item_queries, return_objects=True)
+
+    events = Event(mongo_helper).filter_events(
+        ([x["sensor_id"] for x in result_sensors] if result_sensors is not None else result_sensors),
+        ([x["item_id"] for x in result_items] if result_items is not None else result_items),
+        start_timestamp_range, end_timestamp_range, limit, skip)
+
+    return jsonify([dict(x) for x in events]), status.HTTP_200_OK
+
+
 @bp.route('/user', methods=('POST', 'GET'))
 @secure_token(restrict_access=USER_ACCESS_MASTER)
 def create_user():

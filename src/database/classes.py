@@ -154,7 +154,7 @@ class DatabaseClassObj:
             self.mongo_helper.db[self.collection_name].update_one({self.id_field, self[self.id_field]},
                                                                   {"$set": {DELETED_FIELD: True}})
 
-    def search(self, query_regex):
+    def search(self, query_regex, return_objects=False):
         resultset = self.mongo_helper.db[self.collection_name].find(
             {'$and': [
                 {DELETED_FIELD: {"$exists": False}},
@@ -165,6 +165,8 @@ class DatabaseClassObj:
             ]}
            )
         objects = (self.__class__(self.mongo_helper)._create_from_mongo_entry(x) for x in resultset)
+        if return_objects:
+            return list(objects)
         return list(dict(o) for o in objects)
 
     def get_all(self):
