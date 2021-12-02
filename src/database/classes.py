@@ -122,6 +122,10 @@ class DatabaseClassObj:
             self.__setattr__(k, v)
         return self
 
+    def _create_from_script(self, entry):
+        self.mongo_helper.db[self.collection_name].insert_one(dict(entry))
+        return self
+
     def update_in_db(self):
         if "_id" not in self and self.id_field not in self:
             raise MissingAttributeException("_id")
