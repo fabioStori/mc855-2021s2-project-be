@@ -264,7 +264,7 @@ class User(DatabaseClassObj):
 class Event(DatabaseClassObj):
     collection_name = "event"
     fields = ["received_timestamp", "event_timestamp", "event_details",
-              "sensor_id", "item_id", "tag_id"]
+              "sensor_id", "item_id", "tag_id", "alert"]
     id_field = "event_timestamp"
     unique_fields = ["event_timestamp"]
     required_fields = ["received_timestamp", "event_timestamp", "event_details",
