@@ -195,6 +195,15 @@ class Item(DatabaseClassObj):
     search_fields = ["name", "item_id", "description", "tags"]
 
 
+class Map(DatabaseClassObj):
+    collection_name = "maps"
+    fields = ["name", "image_link"]
+    id_field = "name"
+    unique_fields = ["image_link", "name"]
+    required_fields = ["name", "image_link"]
+    search_fields = ["name", "image_link"]
+
+
 class Sensor(DatabaseClassObj):
     collection_name = "sensor"
     fields = ["description", "name", "sensor_id",

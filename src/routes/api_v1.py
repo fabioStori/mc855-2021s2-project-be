@@ -7,7 +7,8 @@ from functools import wraps
 
 from config import Parser
 from database.mongo_helper import MongoHelper
-from database.classes import Item, Event, Sensor, User, Token, USER_ACCESS_MASTER, USER_ACCESS_DEFAULT, USER_ACCESS_LIMITED
+from database.classes import Item, Event, Sensor, User, Token, Map, USER_ACCESS_MASTER, USER_ACCESS_DEFAULT, \
+    USER_ACCESS_LIMITED
 from google_utils import get_google_user_data
 
 mongo_helper = MongoHelper.init_from_config(Parser())
@@ -17,9 +18,9 @@ bp = Blueprint(__name__, 'api_v1')
 
 def secure_token(restrict_access=USER_ACCESS_LIMITED):
     # por padrao, qualquer nivel de acesso tem permissão na rota
-    #401 - fora da lista
-    #403 - sem acesso (permissao)
-    #498 - token expirado
+    # 401 - fora da lista
+    # 403 - sem acesso (permissao)
+    # 498 - token expirado
     def decorator(f):
         @wraps(f)
         def check_authorization(*args, **kwargs):
@@ -34,13 +35,16 @@ def secure_token(restrict_access=USER_ACCESS_LIMITED):
                     if token['access_level'] <= restrict_access:
                         return f(*args, **kwargs)
                     else:
-                        return jsonify({"Error": "User does not have access to this resource"}), status.HTTP_403_FORBIDDEN
+                        return jsonify(
+                            {"Error": "User does not have access to this resource"}), status.HTTP_403_FORBIDDEN
 
                 except ValueError:
                     return jsonify({"Error": "Token expired"}), 498
             else:
                 return jsonify({"Error": "Token in the wrong format supplied"}), status.HTTP_401_UNAUTHORIZED
+
         return check_authorization
+
     return decorator
 
 
@@ -88,7 +92,7 @@ def get_event_count():
     return jsonify({"event_count": Event(mongo_helper).count()}), status.HTTP_200_OK
 
 
-@bp.route('/sensor', methods=('POST', ))
+@bp.route('/sensor', methods=('POST',))
 @secure_token(USER_ACCESS_DEFAULT)
 def create_sensor():
     if request.method == 'POST':
@@ -99,7 +103,7 @@ def create_sensor():
             return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
 
 
-@bp.route('/sensor', methods=('GET', ))
+@bp.route('/sensor', methods=('GET',))
 @secure_token()
 def read_sensor():
     if request.method == 'GET':
@@ -136,7 +140,7 @@ def update_sensor(sensor_id):
             return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
 
 
-@bp.route('/item', methods=('POST', ))
+@bp.route('/item', methods=('POST',))
 @secure_token(restrict_access=USER_ACCESS_DEFAULT)
 def create_item():
     try:
@@ -146,7 +150,7 @@ def create_item():
         return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
 
 
-@bp.route('/item/<item_id>', methods=('GET', ))
+@bp.route('/item/<item_id>', methods=('GET',))
 @secure_token()
 def find_item(item_id):
     if request.method == 'GET':
@@ -310,4 +314,36 @@ def login():
         }), status.HTTP_401_UNAUTHORIZED
 
 
+@bp.route('/map', methods=('POST',))
+#@secure_token(restrict_access=USER_ACCESS_MASTER)
+def create_map():
+    try:
+        item = Map(mongo_helper).create_from_request(request)
+        return jsonify({"Message": "Inserted Successfully!", "item": dict(item)}), status.HTTP_200_OK
+    except Exception as e:
+        return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
 
+
+@bp.route('/map/<name>', methods=('DELETE', 'GET', 'PUT'))
+#@secure_token(restrict_access=USER_ACCESS_MASTER)
+def manage_map(name):
+    if request.method == 'GET':
+        try:
+            user = Map(mongo_helper, name)
+            return jsonify(dict(user)), status.HTTP_200_OK
+        except Exception as e:
+            return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+    elif request.method == 'PUT':
+        try:
+            map_item = Map(mongo_helper, name)
+            map_item.update_from_request(request)
+            return jsonify(dict(map_item)), status.HTTP_200_OK
+        except Exception as e:
+            return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
+    elif request.method == 'DELETE':
+        try:
+            map_item = Map(mongo_helper, name)
+            map_item.delete()
+            return jsonify({'Message': "Map removed successfully"}), status.HTTP_200_OK
+        except Exception as e:
+            return jsonify({'Message': str(e)}), status.HTTP_400_BAD_REQUEST
