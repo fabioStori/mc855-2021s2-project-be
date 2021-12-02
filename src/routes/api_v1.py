@@ -39,7 +39,7 @@ def secure_token(restrict_access=USER_ACCESS_LIMITED):
                             {"Error": "User does not have access to this resource"}), status.HTTP_403_FORBIDDEN
 
                 except ValueError:
-                    return jsonify({"Error": "Token expired"}), 498
+                    return jsonify({"Error": "Token expired", "Reason": str(e), "Authorization": request.headers.get("Authorization")}), 498
             else:
                 return jsonify({"Error": "Token in the wrong format supplied"}), status.HTTP_401_UNAUTHORIZED
 
@@ -47,7 +47,8 @@ def secure_token(restrict_access=USER_ACCESS_LIMITED):
 
     return decorator
 
-
+ALERT_UNREAD = 1
+ALERT_READ = 2
 @bp.route('/event', methods=('POST',))
 def register_event():
     if request.method == "POST":
@@ -67,7 +68,26 @@ def register_event():
         if not item:
             return jsonify({"error": "no item registered for this tag"}), status.HTTP_400_BAD_REQUEST
 
-        r = mongo_helper.add_event(sensor_id, tag_id, item["item_id"], event_timestamp, event_details)
+        alert = None
+        if item.get("location_blacklist"):
+            loc_blacklist = item["location_blacklist"]
+            if isinstance(loc_blacklist, list):
+                if sensor_id in loc_blacklist:
+                    alert = ALERT_UNREAD
+            else:
+                if sensor_id == loc_blacklist:
+                    alert = ALERT_UNREAD
+
+        if item.get("location_whitelist"):
+            loc_whitelist = item["location_whitelist"]
+            if isinstance(loc_whitelist, list):
+                if sensor_id not in loc_whitelist:
+                    alert = ALERT_UNREAD
+            else:
+                if sensor_id != loc_whitelist:
+                    alert = ALERT_UNREAD
+
+        r = mongo_helper.add_event(sensor_id, tag_id, item["item_id"], event_timestamp, event_details, alert)
         return jsonify({"Event added successfully": str(r.inserted_id)}), status.HTTP_200_OK
 
 

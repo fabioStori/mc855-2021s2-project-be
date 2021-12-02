@@ -312,8 +312,7 @@ class Token(DatabaseClassObj):
 
     def check_token_ttl(self):
         self.mongo_helper.db[self.collection_name].create_index(
-           "last_modified", expireAfterSeconds=20*60, name="last_modified_ttl")  # 20 minutes
-
+           "last_modified", expireAfterSeconds=24*60*60, name="last_modified_ttl")
 
     def create_from_request(self, request):
         raise NotImplementedError()

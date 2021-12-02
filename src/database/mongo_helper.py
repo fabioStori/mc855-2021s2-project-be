@@ -46,7 +46,7 @@ class MongoHelper:
     def get_item_by_tag(self, tag_id):
         return self.db['item'].find_one({"tags": tag_id})
 
-    def add_event(self, sensor_id, tag_id, item_id, event_timestamp, event_details):
+    def add_event(self, sensor_id, tag_id, item_id, event_timestamp, event_details, alert=None):
         event = {
             'inserted_timestamp': datetime.now().timestamp(),
             'event_timestamp': event_timestamp,
@@ -55,6 +55,8 @@ class MongoHelper:
             'item_id': item_id,
             'tag_id': tag_id
         }
+        if alert:
+            event["alert"] = alert
         if not self.db["event"].find_one({"event_timestamp": event_timestamp}):
             return self.db["event"].insert_one(event)
         else:
