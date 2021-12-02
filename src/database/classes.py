@@ -271,8 +271,11 @@ class Event(DatabaseClassObj):
                        "sensor_id", "tag_id"]
     search_fields = ["event_details", "sensor_id", "item_id", "tag_id"]
 
-    def filter_events(self, sensor_id=None, item_id=None, start_timestamp_range=None, end_timestamp_range=None, limit=None, skip=0):
+    def filter_events(self, sensor_id=None, item_id=None, start_timestamp_range=None, end_timestamp_range=None, limit=None, skip=0, alert_only=None):
         filters = []
+        if alert_only:
+            filters.append({"alert": {"$exists": True}})
+
         if sensor_id is not None:
             if isinstance(sensor_id, list):
                 filters.append({'sensor_id': {"$in": sensor_id}})

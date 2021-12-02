@@ -234,6 +234,8 @@ def search_event():
     limit = int(request.json.get('limit', 0))
     skip = int(request.json.get('skip', 0))
 
+    alert_only = request.json.get('alert_only')
+
     sensor_queries = request.json.get('sensor_query')
     result_sensors = None
     if sensor_queries:
@@ -247,7 +249,7 @@ def search_event():
     events = Event(mongo_helper).filter_events(
         ([x["sensor_id"] for x in result_sensors] if result_sensors is not None else result_sensors),
         ([x["item_id"] for x in result_items] if result_items is not None else result_items),
-        start_timestamp_range, end_timestamp_range, limit, skip)
+        start_timestamp_range, end_timestamp_range, limit, skip, alert_only)
 
 
     results = []
