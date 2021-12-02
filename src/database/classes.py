@@ -285,8 +285,15 @@ class Event(DatabaseClassObj):
             else:
                 filters.append({'item_id': item_id})
 
-        if start_timestamp_range is not None and end_timestamp_range is not None:
-            filters.append({'event_timestamp': {"$gte": start_timestamp_range, "$lte": end_timestamp_range}})
+        if start_timestamp_range is not None or end_timestamp_range is not None:
+            filter_event = {}
+            if start_timestamp_range:
+                filter_event["$gte"] = start_timestamp_range
+
+            if end_timestamp_range:
+                filter_event["$lte"] = end_timestamp_range
+
+            filters.append({'event_timestamp': filter_event})
 
         q = {}
         if filters:
