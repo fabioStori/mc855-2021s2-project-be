@@ -81,8 +81,8 @@ class MongoHelper:
         if self.db['token'].indexes.find_one({'name': 'token_expiration_ttl'}):
             return False
         self.db['token'].create_index(
-            {"last_modified_date": 1},
-            {'expireAfterSeconds': 20*60}) # 20 minutes
+            {"last_modified": 1},
+            {'expireAfterSeconds': 24*60*60})
         return True
 
     def add_access_token(self):
