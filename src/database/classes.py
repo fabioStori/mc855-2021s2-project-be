@@ -290,7 +290,7 @@ class Event(DatabaseClassObj):
 
         q = {}
         if filters:
-            q['$or'] = filters
+            q['$and'] = filters
 
         q = self.mongo_helper.db[self.collection_name].find(q).sort([("event_timestamp", -1)])
         if skip:
