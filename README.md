@@ -32,7 +32,7 @@ Nesse projeto utilizamos [Flask](https://flask.palletsprojects.com/en/2.0.x/) co
 
 ### Ambientes: 
 O ambiente de produção está hospedado em uma máquina virtual da nuvem do IC, rodando com um container Docker. 
-O projeto não possui nenhum ambiente de dev, o desenvolvimento está sendo feito e testado localmente e, depois das novas funcionalidades terem sido testadas, é feito o deploy para o ambiente de produção.
+O projeto não possui nenhum ambiente de desenvolvimento ou homologação, o desenvolvimento está sendo feito e testado localmente e, depois das novas funcionalidades terem sido testadas, é feito o deploy para o ambiente de produção.
 
 # Instalação:
 O projeto precisa do [Python3.8](https://www.python.org/downloads/release/python-380/), [Pip](https://pip.pypa.io/en/stable/installation/) e o [Docker](https://www.docker.com/) instalados para a execução.
@@ -41,13 +41,13 @@ Na raiz do projeto, execute o comando para a instalação das bibliotecas.
 pip install -r ./requirements.txt
 ```
 
-# Acessando aplicação local
+# Acessando aplicação local:
 Após instalar as dependências, execute o comando para subir o container.
 ```sh
 docker-compose up --build
 ```
 Após executar esse comando o container será criado e a aplicação estará disponível para requisições em localhost:<porta-selecionada>, inclusive com um MongoDB local.
-
+As requisições podem ser feitas via [Postman](https://www.postman.com/) ou qualquer outro API Client.
 ### Acessando o ambiente de produção:
 A aplicação está hospedada no servidor cloud da Unicamp, com o seguinte endereço: https://invent-io.ic.unicamp.br/.
 
