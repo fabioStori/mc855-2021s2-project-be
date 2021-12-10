@@ -45,7 +45,7 @@ for i in range(0xffff01, 0xffff05):
         "received_timestamp": dt.datetime.now().timestamp(),
         "event_timestamp": dt.datetime.now().timestamp(),
         "event_details": "tag in motion",
-        "sensor_id": hex(i),
+        "sensor_id": hex(i)[2:],
         "item_id": str(randint(0,5)),
         "tag_id": random.choice(vet)
     })

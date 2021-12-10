@@ -141,12 +141,11 @@ class DatabaseClassObj:
         if "_id" not in self and self.id_field not in self:
             raise MissingAttributeException("_id")
 
-        if "_id" in self:
-            self.mongo_helper.db[self.collection_name].update_one({"_id": ObjectId(self["_id"])},
-                                                                  {"$set": request})
-        else:
-            self.mongo_helper.db[self.collection_name].update_one({self.id_field, self[self.id_field]},
-                                                                  {"$set": request})
+        for k, v in request.json.items():
+            if k in self.__fields__():
+                self.__setattr__(k, v)
+        self.update_in_db()
+
 
     def delete(self):
         if "_id" not in self and self.id_field not in self:
@@ -159,7 +158,7 @@ class DatabaseClassObj:
             self.mongo_helper.db[self.collection_name].update_one({self.id_field, self[self.id_field]},
                                                                   {"$set": {DELETED_FIELD: True}})
 
-    def search(self, query_regex):
+    def search(self, query_regex, return_objects=False):
         resultset = self.mongo_helper.db[self.collection_name].find(
             {'$and': [
                 {DELETED_FIELD: {"$exists": False}},
@@ -170,6 +169,8 @@ class DatabaseClassObj:
             ]}
            )
         objects = (self.__class__(self.mongo_helper)._create_from_mongo_entry(x) for x in resultset)
+        if return_objects:
+            return list(objects)
         return list(dict(o) for o in objects)
 
     def get_all(self):
@@ -192,6 +193,15 @@ class Item(DatabaseClassObj):
     unique_fields = ["item_id", "tags"]
     required_fields = ["name", "item_id", "tags"]
     search_fields = ["name", "item_id", "description", "tags"]
+
+
+class Map(DatabaseClassObj):
+    collection_name = "maps"
+    fields = ["name", "image_link"]
+    id_field = "name"
+    unique_fields = ["image_link", "name"]
+    required_fields = ["name", "image_link"]
+    search_fields = ["name", "image_link"]
 
 
 class Sensor(DatabaseClassObj):
@@ -254,15 +264,18 @@ class User(DatabaseClassObj):
 class Event(DatabaseClassObj):
     collection_name = "event"
     fields = ["received_timestamp", "event_timestamp", "event_details",
-              "sensor_id", "item_id", "tag_id"]
+              "sensor_id", "item_id", "tag_id", "alert"]
     id_field = "event_timestamp"
     unique_fields = ["event_timestamp"]
     required_fields = ["received_timestamp", "event_timestamp", "event_details",
                        "sensor_id", "tag_id"]
     search_fields = ["event_details", "sensor_id", "item_id", "tag_id"]
 
-    def filter_events(self, sensor_id=None, item_id=None, start_timestamp_range=None, end_timestamp_range=None, limit=None):
+    def filter_events(self, sensor_id=None, item_id=None, start_timestamp_range=None, end_timestamp_range=None, limit=None, skip=0, alert_only=None):
         filters = []
+        if alert_only:
+            filters.append({"alert": {"$exists": True}})
+
         if sensor_id is not None:
             if isinstance(sensor_id, list):
                 filters.append({'sensor_id': {"$in": sensor_id}})
@@ -275,10 +288,23 @@ class Event(DatabaseClassObj):
             else:
                 filters.append({'item_id': item_id})
 
-        if start_timestamp_range is not None and end_timestamp_range is not None:
-            filters.append({'event_timestamp': {"$gte": start_timestamp_range, "$lte": end_timestamp_range}})
+        if start_timestamp_range is not None or end_timestamp_range is not None:
+            filter_event = {}
+            if start_timestamp_range:
+                filter_event["$gte"] = start_timestamp_range
 
-        q = self.mongo_helper.db[self.collection_name].find({'$or': filters}).sort([("event_timestamp", -1)])
+            if end_timestamp_range:
+                filter_event["$lte"] = end_timestamp_range
+
+            filters.append({'event_timestamp': filter_event})
+
+        q = {}
+        if filters:
+            q['$and'] = filters
+
+        q = self.mongo_helper.db[self.collection_name].find(q).sort([("event_timestamp", -1)])
+        if skip:
+            q.skip(skip)
         if limit:
             q.limit(limit)
 
@@ -296,8 +322,7 @@ class Token(DatabaseClassObj):
 
     def check_token_ttl(self):
         self.mongo_helper.db[self.collection_name].create_index(
-           "last_modified", expireAfterSeconds=20*60, name="last_modified_ttl")  # 20 minutes
-
+           "last_modified", expireAfterSeconds=24*60*60, name="last_modified_ttl")
 
     def create_from_request(self, request):
         raise NotImplementedError()
