@@ -13,7 +13,7 @@ from google_utils import get_google_user_data
 
 mongo_helper = MongoHelper.init_from_config(Parser())
 
-bp = Blueprint(__name__, 'api_v1')
+bp = Blueprint('api_v1', __name__)
 
 
 def secure_token(restrict_access=USER_ACCESS_LIMITED):

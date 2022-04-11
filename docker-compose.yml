@@ -16,7 +16,7 @@ services:
       MONGO_HOST: mongo
 
   mongo:
-    image: mongo:4.4.6
+    image: mongo
     container_name: mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
