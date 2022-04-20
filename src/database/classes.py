@@ -181,7 +181,7 @@ class DatabaseClassObj:
         return list(dict(o) for o in objects)
 
     def count(self):
-        return self.mongo_helper.db[self.collection_name].find({DELETED_FIELD: {"$exists": False}}).count()
+        return self.mongo_helper.db[self.collection_name].count_documents({DELETED_FIELD: {"$exists": False}})
 
 
 class Item(DatabaseClassObj):
